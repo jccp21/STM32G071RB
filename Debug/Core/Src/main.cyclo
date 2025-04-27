@@ -1,0 +1,8 @@
+../Core/Src/main.c:41:5:main	14
+../Core/Src/main.c:147:6:SystemClock_Config	1
+../Core/Src/main.c:152:6:GPIO_Init	1
+../Core/Src/main.c:171:6:TIM1_Init	1
+../Core/Src/main.c:191:6:ADC1_Init	4
+../Core/Src/main.c:232:6:ReadTemperature	1
+../Core/Src/main.c:248:6:UpdateDisplay	2
+../Core/Src/main.c:266:6:Buzzer_Beep	1
