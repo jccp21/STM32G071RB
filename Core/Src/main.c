@@ -152,8 +152,25 @@ void SystemClock_Config(void)
 void GPIO_Init(void)
 {
     __HAL_RCC_GPIOA_CLK_ENABLE();
+    __HAL_RCC_GPIOB_CLK_ENABLE();
+    __HAL_RCC_GPIOC_CLK_ENABLE();
 
-    // PWM Output (PA8)
+    // --- LCD RS e EN (PC5, PC4) ---
+    GPIO_InitStruct.Pin = GPIO_PIN_4 | GPIO_PIN_5;
+    GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+    HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+
+    // --- LCD D4 (PA10) ---
+    GPIO_InitStruct.Pin = GPIO_PIN_10;
+    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+    // --- LCD D5, D6, D7 (PB3, PB5, PB4) ---
+    GPIO_InitStruct.Pin = GPIO_PIN_3 | GPIO_PIN_5 | GPIO_PIN_4;
+    HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+    // --- PWM Output (PA8) ---
     GPIO_InitStruct.Pin = PWM_OUTPUT;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
@@ -161,19 +178,19 @@ void GPIO_Init(void)
     GPIO_InitStruct.Alternate = GPIO_AF2_TIM1;
     HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-   // Configura botões como entrada
-GPIO_InitStruct.Pin = BUTTON_UP | BUTTON_DOWN | BUTTON_SCREEN;
-GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-GPIO_InitStruct.Pull = GPIO_PULLUP;
-HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+    // --- Botões (PA0, PA1, PA5) ---
+    GPIO_InitStruct.Pin = BUTTON_UP | BUTTON_DOWN | BUTTON_SCREEN;
+    GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+    GPIO_InitStruct.Pull = GPIO_PULLUP;
+    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-// Configura buzzer e LED como saída
-GPIO_InitStruct.Pin = BUZZER | ALARM_LED;
-GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-GPIO_InitStruct.Pull = GPIO_NOPULL;
-HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
+    // --- Buzzer e LED (PA3, PA4) ---
+    GPIO_InitStruct.Pin = BUZZER | ALARM_LED;
+    GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 }
+
 
 void TIM1_Init(void)
 {
@@ -197,29 +214,10 @@ void TIM1_Init(void)
 
 void ADC1_Init(void)
 {
-    // Habilita o clock do ADC
     __HAL_RCC_ADC_CLK_ENABLE();
 
-    // --- Habilita o clock do sistema para o ADC e configura o clock do ADC ---
-    // (opcional se quiser garantir o melhor funcionamento)
-
-    // Coloca o ADC em modo de inicialização
-    if ((ADC1->CR & ADC_CR_ADEN) != 0)
-    {
-        ADC1->CR |= ADC_CR_ADDIS; // Desliga o ADC se estiver ligado
-        while ((ADC1->CR & ADC_CR_ADEN) != 0); // Espera desligar
-    }
-
-    // Ativa o clock interno do ADC (14 MHz)
-    ADC1_COMMON->CCR|= ADC_CCR_VREFEN; // Ativa referência VREFINT (se quiser usar futuramente)
-
-    // Faz calibração
-    ADC1->CR |= ADC_CR_ADCAL;
-    while ((ADC1->CR & ADC_CR_ADCAL) != 0); // Espera a calibração terminar
-
-    // --- Configuração da estrutura HAL ---
     hadc1.Instance = ADC1;
-    hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV4; // Divide PCLK
+    hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV4;
     hadc1.Init.Resolution = ADC_RESOLUTION_12B;
     hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
     hadc1.Init.ScanConvMode = ADC_SCAN_DISABLE;
@@ -232,8 +230,13 @@ void ADC1_Init(void)
     hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
     hadc1.Init.DMAContinuousRequests = DISABLE;
 
-    HAL_ADC_Init(&hadc1);
+    if (HAL_ADC_Init(&hadc1) != HAL_OK)
+    {
+        // Tratamento de erro (LED, buzzer ou loop infinito)
+        while (1);
+    }
 }
+
 
 
 void ReadTemperature(void)

@@ -1,57 +1,68 @@
 #include "lcd.h"
+#include "string.h"
+#include "stdint.h"
 #include "stm32g0xx_hal.h"
+#include "main.h"
 
-// Funções internas
-void LCD_SendNibble(uint8_t nibble);
-void LCD_SendCommand(uint8_t cmd);
-void LCD_SendData(uint8_t data);
-void LCD_EnablePulse(void);
+static void LCD_EnablePulse(void);
+static void LCD_Send4Bits(uint8_t data);
+static void LCD_SendCommand(uint8_t cmd);
+static void LCD_SendData(uint8_t data);
+
+static void LCD_EnablePulse(void)
+{
+    HAL_GPIO_WritePin(LCD_EN_GPIO_Port, LCD_EN_Pin, GPIO_PIN_SET);
+    HAL_Delay(1);
+    HAL_GPIO_WritePin(LCD_EN_GPIO_Port, LCD_EN_Pin, GPIO_PIN_RESET);
+    HAL_Delay(1);
+}
+
+static void LCD_Send4Bits(uint8_t data)
+{
+    HAL_GPIO_WritePin(LCD_D4_GPIO_Port, LCD_D4_Pin, (data >> 0) & 0x01);
+    HAL_GPIO_WritePin(LCD_D5_GPIO_Port, LCD_D5_Pin, (data >> 1) & 0x01);
+    HAL_GPIO_WritePin(LCD_D6_GPIO_Port, LCD_D6_Pin, (data >> 2) & 0x01);
+    HAL_GPIO_WritePin(LCD_D7_GPIO_Port, LCD_D7_Pin, (data >> 3) & 0x01);
+    LCD_EnablePulse();
+}
+
+static void LCD_SendCommand(uint8_t cmd)
+{
+    HAL_GPIO_WritePin(LCD_RS_GPIO_Port, LCD_RS_Pin, GPIO_PIN_RESET);
+    LCD_Send4Bits(cmd >> 4);
+    LCD_Send4Bits(cmd & 0x0F);
+    HAL_Delay(2);
+}
+
+static void LCD_SendData(uint8_t data)
+{
+    HAL_GPIO_WritePin(LCD_RS_GPIO_Port, LCD_RS_Pin, GPIO_PIN_SET);
+    LCD_Send4Bits(data >> 4);
+    LCD_Send4Bits(data & 0x0F);
+    HAL_Delay(1);
+}
 
 void LCD_Init(void)
 {
-    // Inicializa os pinos
-    __HAL_RCC_GPIOA_CLK_ENABLE();
-    __HAL_RCC_GPIOB_CLK_ENABLE();
+    HAL_Delay(50); // Espera após power-up
+    HAL_GPIO_WritePin(LCD_RS_GPIO_Port, LCD_RS_Pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(LCD_EN_GPIO_Port, LCD_EN_Pin, GPIO_PIN_RESET);
 
-    GPIO_InitTypeDef GPIO_InitStruct = {0};
-
-    // Configure todos como saída
-    GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-    GPIO_InitStruct.Pull = GPIO_NOPULL;
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-
-    GPIO_InitStruct.Pin = LCD_RS_PIN;
-    HAL_GPIO_Init(LCD_RS_PORT, &GPIO_InitStruct);
-
-    GPIO_InitStruct.Pin = LCD_EN_PIN;
-    HAL_GPIO_Init(LCD_EN_PORT, &GPIO_InitStruct);
-
-    GPIO_InitStruct.Pin = LCD_D4_PIN;
-    HAL_GPIO_Init(LCD_D4_PORT, &GPIO_InitStruct);
-
-    GPIO_InitStruct.Pin = LCD_D5_PIN;
-    HAL_GPIO_Init(LCD_D5_PORT, &GPIO_InitStruct);
-
-    GPIO_InitStruct.Pin = LCD_D6_PIN;
-    HAL_GPIO_Init(LCD_D6_PORT, &GPIO_InitStruct);
-
-    GPIO_InitStruct.Pin = LCD_D7_PIN;
-    HAL_GPIO_Init(LCD_D7_PORT, &GPIO_InitStruct);
-
-    // Sequência de inicialização do LCD
-    HAL_Delay(40);
-    LCD_SendNibble(0x03);
+    // Inicialização modo 4 bits
+    LCD_Send4Bits(0x03);
     HAL_Delay(5);
-    LCD_SendNibble(0x03);
+    LCD_Send4Bits(0x03);
+    HAL_Delay(5);
+    LCD_Send4Bits(0x03);
+    HAL_Delay(5);
+    LCD_Send4Bits(0x02); // 4 bits
     HAL_Delay(1);
-    LCD_SendNibble(0x03);
-    HAL_Delay(1);
-    LCD_SendNibble(0x02); // Modo 4 bits
 
-    LCD_SendCommand(0x28); // 2 linhas, 5x8 pontos
+    LCD_SendCommand(0x28); // 2 linhas, 4 bits, 5x8 dots
     LCD_SendCommand(0x0C); // Display ON, cursor OFF
-    LCD_SendCommand(0x06); // Incrementa cursor
-    LCD_Clear();
+    LCD_SendCommand(0x06); // Incremento automático
+    LCD_SendCommand(0x01); // Clear
+    HAL_Delay(2);
 }
 
 void LCD_Clear(void)
@@ -60,18 +71,18 @@ void LCD_Clear(void)
     HAL_Delay(2);
 }
 
-void LCD_SetCursor(uint8_t row, uint8_t col)
+void LCD_SetCursor(uint8_t col, uint8_t row)
 {
-    uint8_t address[] = {0x00, 0x40}; // Linha 1 e linha 2
-    LCD_SendCommand(0x80 | (address[row] + col));
+    uint8_t addr = (row == 0) ? 0x00 : 0x40;
+    addr += col;
+    LCD_SendCommand(0x80 | addr);
 }
 
-void LCD_Print(char *str)
+void LCD_Print(char* str)
 {
     while (*str)
     {
-        LCD_SendData((uint8_t)(*str));
-        str++;
+        LCD_SendData(*str++);
     }
 }
 
@@ -79,41 +90,7 @@ void LCD_DisplayWelcome(void)
 {
     LCD_Clear();
     LCD_SetCursor(0, 0);
-    LCD_Print("Sistema Iniciado");
-    LCD_SetCursor(1, 0);
-    LCD_Print("Aguardando...");
-}
-
-// --- Internas ---
-void LCD_SendCommand(uint8_t cmd)
-{
-    HAL_GPIO_WritePin(LCD_RS_PORT, LCD_RS_PIN, GPIO_PIN_RESET);
-    LCD_SendNibble(cmd >> 4);
-    LCD_SendNibble(cmd & 0x0F);
-    HAL_Delay(1);
-}
-
-void LCD_SendData(uint8_t data)
-{
-    HAL_GPIO_WritePin(LCD_RS_PORT, LCD_RS_PIN, GPIO_PIN_SET);
-    LCD_SendNibble(data >> 4);
-    LCD_SendNibble(data & 0x0F);
-    HAL_Delay(1);
-}
-
-void LCD_SendNibble(uint8_t nibble)
-{
-    HAL_GPIO_WritePin(LCD_D4_PORT, LCD_D4_PIN, (nibble & 0x01) ? GPIO_PIN_SET : GPIO_PIN_RESET);
-    HAL_GPIO_WritePin(LCD_D5_PORT, LCD_D5_PIN, (nibble & 0x02) ? GPIO_PIN_SET : GPIO_PIN_RESET);
-    HAL_GPIO_WritePin(LCD_D6_PORT, LCD_D6_PIN, (nibble & 0x04) ? GPIO_PIN_SET : GPIO_PIN_RESET);
-    HAL_GPIO_WritePin(LCD_D7_PORT, LCD_D7_PIN, (nibble & 0x08) ? GPIO_PIN_SET : GPIO_PIN_RESET);
-    LCD_EnablePulse();
-}
-
-void LCD_EnablePulse(void)
-{
-    HAL_GPIO_WritePin(LCD_EN_PORT, LCD_EN_PIN, GPIO_PIN_SET);
-    HAL_Delay(1);
-    HAL_GPIO_WritePin(LCD_EN_PORT, LCD_EN_PIN, GPIO_PIN_RESET);
-    HAL_Delay(1);
+    LCD_Print("  Sistema Pronto ");
+    LCD_SetCursor(0, 1);
+    LCD_Print("   STM32 + LCD   ");
 }
