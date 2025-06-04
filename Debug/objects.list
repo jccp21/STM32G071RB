@@ -1,4 +1,4 @@
-"./Core/Inc/lcd.o"
+"./Core/Src/lcd.o"
 "./Core/Src/main.o"
 "./Core/Src/stm32g0xx_hal_msp.o"
 "./Core/Src/stm32g0xx_it.o"

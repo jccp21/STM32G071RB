@@ -1,9 +1,0 @@
-../Core/Inc/lcd.c:12:13:LCD_EnablePulse	8	static
-../Core/Inc/lcd.c:20:13:LCD_Send4Bits	16	static
-../Core/Inc/lcd.c:29:13:LCD_SendCommand	16	static
-../Core/Inc/lcd.c:37:13:LCD_SendData	16	static
-../Core/Inc/lcd.c:45:6:LCD_Init	8	static
-../Core/Inc/lcd.c:68:6:LCD_Clear	8	static
-../Core/Inc/lcd.c:74:6:LCD_SetCursor	24	static
-../Core/Inc/lcd.c:81:6:LCD_Print	16	static
-../Core/Inc/lcd.c:89:6:LCD_DisplayWelcome	8	static
