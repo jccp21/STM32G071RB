@@ -61,32 +61,39 @@ void Error_Handler(void);
 /* Private defines -----------------------------------------------------------*/
 #define MCO_Pin GPIO_PIN_0
 #define MCO_GPIO_Port GPIOF
-#define BUTTON_UP_Pin GPIO_PIN_0
-#define BUTTON_UP_GPIO_Port GPIOA
-#define BUTTON_DOWN_Pin GPIO_PIN_1
-#define BUTTON_DOWN_GPIO_Port GPIOA
-#define BUZZER_Pin GPIO_PIN_3
-#define BUZZER_GPIO_Port GPIOA
-#define ALARM_LED_Pin GPIO_PIN_4
-#define ALARM_LED_GPIO_Port GPIOA
-#define BUTTON_SCREEN_Pin GPIO_PIN_5
-#define BUTTON_SCREEN_GPIO_Port GPIOA
+
+#define BUTTON_UP        GPIO_PIN_0
+#define BUTTON_DOWN      GPIO_PIN_1
+#define BUTTON_SCREEN    GPIO_PIN_6
+#define BUTTON_GPIO_PORT GPIOA
+
+#define BUZZER           GPIO_PIN_3
+#define BUZZER_GPIO_PORT GPIOA
+
+#define ALARM_LED        GPIO_PIN_4
+#define ALARM_LED_GPIO_PORT GPIOA
+
+#define PWM_OUTPUT       GPIO_PIN_8
+
 #define LCD_EN_Pin GPIO_PIN_4
 #define LCD_EN_GPIO_Port GPIOC
 #define LCD_RS_Pin GPIO_PIN_5
 #define LCD_RS_GPIO_Port GPIOC
 #define LCD_D4_Pin GPIO_PIN_10
 #define LCD_D4_GPIO_Port GPIOA
+#define LCD_D5_Pin GPIO_PIN_3
+#define LCD_D5_GPIO_Port GPIOB
+#define LCD_D6_Pin GPIO_PIN_5
+#define LCD_D6_GPIO_Port GPIOB
+#define LCD_D7_Pin GPIO_PIN_4
+#define LCD_D7_GPIO_Port GPIOB
+
 #define TMS_Pin GPIO_PIN_13
 #define TMS_GPIO_Port GPIOA
 #define TCK_Pin GPIO_PIN_14
 #define TCK_GPIO_Port GPIOA
-#define LCD_D5_Pin GPIO_PIN_3
-#define LCD_D5_GPIO_Port GPIOB
-#define LCD_D7_Pin GPIO_PIN_4
-#define LCD_D7_GPIO_Port GPIOB
-#define LCD_D6_Pin GPIO_PIN_5
-#define LCD_D6_GPIO_Port GPIOB
+
+
 
 /* USER CODE BEGIN Private defines */
 

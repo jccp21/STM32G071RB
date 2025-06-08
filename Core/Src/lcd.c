@@ -9,13 +9,14 @@ static void LCD_Send4Bits(uint8_t data);
 static void LCD_SendCommand(uint8_t cmd);
 static void LCD_SendData(uint8_t data);
 
-static void LCD_EnablePulse(void)
+void LCD_EnablePulse(void)
 {
     HAL_GPIO_WritePin(LCD_EN_GPIO_Port, LCD_EN_Pin, GPIO_PIN_SET);
-    HAL_Delay(1);
+    for(volatile int i=0; i<1000; i++); // pequeno delay
     HAL_GPIO_WritePin(LCD_EN_GPIO_Port, LCD_EN_Pin, GPIO_PIN_RESET);
-    HAL_Delay(1);
+    for(volatile int i=0; i<1000; i++);
 }
+
 
 static void LCD_Send4Bits(uint8_t data)
 {

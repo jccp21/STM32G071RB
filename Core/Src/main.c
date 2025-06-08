@@ -2,25 +2,13 @@
 #include "lcd.h" // Nosso driver LCD em 4 bits
 #include "stdio.h"
 #include "stdint.h"
-
+#include "main.h"
 // --- Definições de periféricos ---
 TIM_HandleTypeDef htim1;
 ADC_HandleTypeDef hadc1;
 GPIO_InitTypeDef GPIO_InitStruct = {0};
 
-// --- Definições de pinos ---
-#define BUTTON_UP        GPIO_PIN_0
-#define BUTTON_DOWN      GPIO_PIN_1
-#define BUTTON_SCREEN    GPIO_PIN_5
-#define BUTTON_GPIO_PORT      GPIOA
 
-#define BUZZER           GPIO_PIN_3
-#define BUZZER_GPIO_PORT      GPIOA
-
-#define ALARM_LED       GPIO_PIN_4
-#define ALARM_LED_GPIO_PORT  GPIOA
-
-#define PWM_OUTPUT      GPIO_PIN_8
 
 // --- Variáveis globais ---
 uint16_t duty_cycle = 0;
@@ -178,7 +166,7 @@ void GPIO_Init(void)
     GPIO_InitStruct.Alternate = GPIO_AF2_TIM1;
     HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-    // --- Botões (PA0, PA1, PA5) ---
+    // --- Botões (PA0, PA1, PA6) ---
     GPIO_InitStruct.Pin = BUTTON_UP | BUTTON_DOWN | BUTTON_SCREEN;
     GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
     GPIO_InitStruct.Pull = GPIO_PULLUP;
@@ -189,6 +177,13 @@ void GPIO_Init(void)
     GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+    // Configurar PA2 como entrada analógica para LM35
+    GPIO_InitStruct.Pin = GPIO_PIN_2;
+    GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
 }
 
 
@@ -252,7 +247,8 @@ void ReadTemperature(void)
     uint32_t adc_value = HAL_ADC_GetValue(&hadc1);
 
     // Convertendo para temperatura em °C
-    temperature = ((adc_value * 3.3) / 4095.0) * 100.0;
+    temperature = (adc_value * 330.0) / 4095.0;
+
 }
 
 void UpdateDisplay(void)
@@ -268,7 +264,7 @@ void UpdateDisplay(void)
     else
     {
         LCD_SetCursor(0, 0);
-        sprintf(buffer, "Temp: %.1f C", temperature);
+        sprintf(buffer, "Temp: %.1f ", temperature);
         LCD_Print(buffer);
     }
 }
