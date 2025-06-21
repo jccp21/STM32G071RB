@@ -3,18 +3,17 @@
 #include "stdio.h"
 #include "stdint.h"
 #include "main.h"
+
 // --- Definições de periféricos ---
 TIM_HandleTypeDef htim1;
 ADC_HandleTypeDef hadc1;
 GPIO_InitTypeDef GPIO_InitStruct = {0};
 
-
-
 // --- Variáveis globais ---
-uint16_t duty_cycle = 0;
-uint8_t current_screen = 0;
-uint8_t temp_alert_active = 0;
-float temperature = 0.0;
+uint16_t duty_cycle = 0; // Duty cycle do PWM (0 a 100%)
+uint8_t current_screen = 0; // Tela atual do display (0 ou 1)
+uint8_t temp_alert_active = 0; // Flag de alerta de temperatura
+float temperature = 0.0; // Valor lido do LM35 em °C
 uint16_t countdown_timer = 60; // Timer regressivo em segundos
 
 // --- Protótipos ---
@@ -31,16 +30,17 @@ int main(void)
     HAL_Init();
     SystemClock_Config();
     GPIO_Init();
-    TIM1_Init();
+    TIM1_Init(); // Inicializa PWM com dead-time (canal CH1 e CH1N)
     ADC1_Init();
     LCD_Init();
 
+    // Inicia PWM no canal 1 e seu complementar (CH1N)
     HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
+    HAL_TIMEx_PWMN_Start(&htim1, TIM_CHANNEL_1);
+
     LCD_DisplayWelcome();
     Buzzer_Beep(200);
-
     HAL_Delay(2000);
-
     LCD_Clear();
 
     uint32_t last_temp_read = 0;
@@ -50,15 +50,15 @@ int main(void)
 
     while (1)
     {
-        // Leitura da temperatura
+        // Leitura periódica da temperatura (a cada 100ms)
         if (HAL_GetTick() - last_temp_read >= 100)
         {
             last_temp_read = HAL_GetTick();
             ReadTemperature();
         }
 
-        // Controle de alarme de temperatura
-        if (temperature >= 50.0)
+        // Lógica de alarme por temperatura
+        if (temperature >= 30.0)
         {
             temp_alert_active = 1;
         }
@@ -69,7 +69,7 @@ int main(void)
             HAL_GPIO_WritePin(BUZZER_GPIO_PORT, BUZZER, GPIO_PIN_RESET);
         }
 
-        // Alarme (pisca LED e buzzer)
+        // Pisca LED e buzzer a cada 100ms se em alarme
         if (temp_alert_active && (HAL_GetTick() - last_alarm_toggle >= 100))
         {
             last_alarm_toggle = HAL_GetTick();
@@ -77,14 +77,14 @@ int main(void)
             HAL_GPIO_TogglePin(BUZZER_GPIO_PORT, BUZZER);
         }
 
-        // Atualiza o display
+        // Atualização do display a cada 200ms
         if (HAL_GetTick() - last_display_update >= 200)
         {
             last_display_update = HAL_GetTick();
             UpdateDisplay();
         }
 
-        // Controle de botões
+        // Botão UP: aumenta duty cycle em 5%
         if (HAL_GPIO_ReadPin(BUTTON_GPIO_PORT, BUTTON_UP) == GPIO_PIN_RESET)
         {
             if (duty_cycle < 100)
@@ -96,6 +96,7 @@ int main(void)
             }
         }
 
+        // Botão DOWN: reduz duty cycle em 5%
         if (HAL_GPIO_ReadPin(BUTTON_GPIO_PORT, BUTTON_DOWN) == GPIO_PIN_RESET)
         {
             if (duty_cycle > 0)
@@ -107,6 +108,7 @@ int main(void)
             }
         }
 
+        // Botão SCREEN: alterna entre telas (PWM/tempo e temperatura)
         if (HAL_GPIO_ReadPin(BUTTON_GPIO_PORT, BUTTON_SCREEN) == GPIO_PIN_RESET)
         {
             current_screen ^= 1;
@@ -115,7 +117,7 @@ int main(void)
             LCD_Clear();
         }
 
-        // Controle do timer regressivo
+        // Redução do timer regressivo se duty > 0
         if (duty_cycle > 0 && (HAL_GetTick() - last_timer_tick >= 1000))
         {
             last_timer_tick = HAL_GetTick();
@@ -134,7 +136,7 @@ int main(void)
 
 void SystemClock_Config(void)
 {
-    // Deixe configurado pelo CubeMX.
+    // Configuração feita via STM32CubeMX
 }
 
 void GPIO_Init(void)
@@ -143,68 +145,81 @@ void GPIO_Init(void)
     __HAL_RCC_GPIOB_CLK_ENABLE();
     __HAL_RCC_GPIOC_CLK_ENABLE();
 
-    // --- LCD RS e EN (PC5, PC4) ---
+    // LCD (RS, EN, D4–D7)
     GPIO_InitStruct.Pin = GPIO_PIN_4 | GPIO_PIN_5;
     GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
     HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
-    // --- LCD D4 (PA10) ---
     GPIO_InitStruct.Pin = GPIO_PIN_10;
     HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-    // --- LCD D5, D6, D7 (PB3, PB5, PB4) ---
     GPIO_InitStruct.Pin = GPIO_PIN_3 | GPIO_PIN_5 | GPIO_PIN_4;
     HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
-    // --- PWM Output (PA8) ---
-    GPIO_InitStruct.Pin = PWM_OUTPUT;
+    // PWM: PA8 (CH1), PA7 (CH1N)
+    GPIO_InitStruct.Pin = GPIO_PIN_8 | GPIO_PIN_7;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
     GPIO_InitStruct.Alternate = GPIO_AF2_TIM1;
     HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-    // --- Botões (PA0, PA1, PA6) ---
+    // Botões com pull-up: PA0, PA1, PA6
     GPIO_InitStruct.Pin = BUTTON_UP | BUTTON_DOWN | BUTTON_SCREEN;
     GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
     GPIO_InitStruct.Pull = GPIO_PULLUP;
     HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-    // --- Buzzer e LED (PA3, PA4) ---
+    // Buzzer e LED: PA3 e PA4
     GPIO_InitStruct.Pin = BUZZER | ALARM_LED;
     GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-    // Configurar PA2 como entrada analógica para LM35
+    // Entrada analógica do LM35: PA2
     GPIO_InitStruct.Pin = GPIO_PIN_2;
     GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
 }
-
 
 void TIM1_Init(void)
 {
     __HAL_RCC_TIM1_CLK_ENABLE();
 
+    // Configuração para gerar 3 MHz com 8 MHz de clock: PSC = 0, ARR = 2
     htim1.Instance = TIM1;
-    htim1.Init.Prescaler = 1;
+    htim1.Init.Prescaler = 0;
     htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
-    htim1.Init.Period = 3199;
+    htim1.Init.Period = 2;
     htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
     htim1.Init.RepetitionCounter = 0;
+    htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
     HAL_TIM_PWM_Init(&htim1);
 
+    // Configuração do canal 1
     TIM_OC_InitTypeDef sConfigOC = {0};
     sConfigOC.OCMode = TIM_OCMODE_PWM1;
-    sConfigOC.Pulse = 0;
+    sConfigOC.Pulse = 1; // 50% duty inicialmente
     sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+    sConfigOC.OCNPolarity = TIM_OCNPOLARITY_HIGH;
     sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+    sConfigOC.OCIdleState = TIM_OCIDLESTATE_RESET;
+    sConfigOC.OCNIdleState = TIM_OCNIDLESTATE_RESET;
     HAL_TIM_PWM_ConfigChannel(&htim1, &sConfigOC, TIM_CHANNEL_1);
+
+    // Configuração do dead time
+    TIM_BreakDeadTimeConfigTypeDef sBreakDeadTimeConfig = {0};
+    sBreakDeadTimeConfig.OffStateRunMode = TIM_OSSR_DISABLE;
+    sBreakDeadTimeConfig.OffStateIDLEMode = TIM_OSSI_DISABLE;
+    sBreakDeadTimeConfig.LockLevel = TIM_LOCKLEVEL_OFF;
+    sBreakDeadTimeConfig.DeadTime = 2; // 1 us @ 8 MHz (aproximadamente)
+    sBreakDeadTimeConfig.BreakState = TIM_BREAK_DISABLE;
+    sBreakDeadTimeConfig.BreakPolarity = TIM_BREAKPOLARITY_HIGH;
+    sBreakDeadTimeConfig.AutomaticOutput = TIM_AUTOMATICOUTPUT_DISABLE;
+    HAL_TIMEx_ConfigBreakDeadTime(&htim1, &sBreakDeadTimeConfig);
 }
 
 void ADC1_Init(void)
@@ -227,18 +242,15 @@ void ADC1_Init(void)
 
     if (HAL_ADC_Init(&hadc1) != HAL_OK)
     {
-        // Tratamento de erro (LED, buzzer ou loop infinito)
         while (1);
     }
 }
-
-
 
 void ReadTemperature(void)
 {
     ADC_ChannelConfTypeDef sConfig = {0};
 
-    sConfig.Channel = ADC_CHANNEL_2; // Conecte o LM35 no PA2
+    sConfig.Channel = ADC_CHANNEL_2; // LM35 conectado no PA2
     sConfig.Rank = ADC_REGULAR_RANK_1;
     HAL_ADC_ConfigChannel(&hadc1, &sConfig);
 
@@ -246,9 +258,7 @@ void ReadTemperature(void)
     HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY);
     uint32_t adc_value = HAL_ADC_GetValue(&hadc1);
 
-    // Convertendo para temperatura em °C
-    temperature = (adc_value * 330.0) / 4095.0;
-
+    temperature = (adc_value * 330.0) / 4095.0; // Conversão para ºC
 }
 
 void UpdateDisplay(void)
